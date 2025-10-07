@@ -71,6 +71,11 @@ Semantic segmentation is crucial for autonomous driving, particularly for Drivab
 
 ## Requirement
 
+python_310.ymlを実行
+pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 triton==2.1.0 --index-url https://download.pytorch.org/whl/cu121
+を実行
+
+
 This codebase has been developed with python version 3..8, PyTorch 1.8.0 and torchvision 0.9.0
 ```setup
 pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
@@ -87,6 +92,7 @@ pip install -r requirements.txt
 
 ## Pre-trained Model
 You can get the pre-trained model from <a href="https://drive.google.com/drive/folders/1EqBzUw0b17aEumZmWYrGZmbx_XJqU-vz?usp=sharing">google</a>.
+
 
 
 ## Dataset
