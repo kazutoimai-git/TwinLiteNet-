@@ -1,0 +1,11 @@
+albumentations
+numpy
+opencv-python
+matplotlib
+scipy
+scikit-learn
+tqdm
+pillow
+timm
+ultralytics==8.0.0
+pyyaml
