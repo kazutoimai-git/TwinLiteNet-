@@ -6,6 +6,7 @@ import yaml
 import math
 from copy import deepcopy
 from argparse import ArgumentParser
+import csv
 
 from model.model import TwinLiteNetPlus
 from loss import TotalLoss
@@ -83,6 +84,15 @@ def train_net(args, hyp):
     
     scaler = torch.cuda.amp.GradScaler()
     
+    
+    csv_path = os.path.join(args.savedir, 'training_metrics.csv')
+    # 新規学習の場合のみヘッダーを書き込む
+    if start_epoch == 0:
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['epoch', 'learning_rate', 'da_miou', 'll_acc', 'll_iou'])
+   
+
     for epoch in range(start_epoch, args.max_epochs):
         model_file_name = os.path.join(args.savedir, f'model_{epoch}.pth')
         poly_lr_scheduler(args, hyp, optimizer, epoch)
@@ -99,6 +109,12 @@ def train_net(args, hyp):
         print(f"Driving Area Segment: mIOU({da_segment_results[2]:.3f})")
         print(f"Lane Line Segment: Acc({ll_segment_results[0]:.3f}) IOU({ll_segment_results[1]:.3f})")
         
+        with open(csv_path, 'a', newline='') as f:
+            writer = csv.writer(f)
+            # --- 修正箇所: writerowで直接インデックスを使用 ---
+            writer.writerow([epoch, lr, f'{da_segment_results[2]:.4f}', f'{ll_segment_results[0]:.4f}', f'{ll_segment_results[1]:.4f}'])
+        
+        
         torch.save(ema.ema.state_dict(), model_file_name) if use_ema else torch.save(model.state_dict(), model_file_name)
         
         save_checkpoint({
@@ -112,8 +128,8 @@ def train_net(args, hyp):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--max_epochs', type=int, default=100, help='Max number of epochs')
-    parser.add_argument('--num_workers', type=int, default=12, help='Number of parallel threads')
+    parser.add_argument('--max_epochs', type=int, default=10, help='Max number of epochs')
+    parser.add_argument('--num_workers', type=int, default=16, help='Number of parallel threads')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
     parser.add_argument('--savedir', default='./testv3', help='Directory to save the results')
     parser.add_argument('--hyp', type=str, default='./hyperparameters/twinlitev2_hyper.yaml', help='Path to hyperparameters YAML')
@@ -121,6 +137,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', default='nano', help='Model configuration')
     parser.add_argument('--verbose', action='store_true', help='Enable verbose logging')
     parser.add_argument('--ema', action='store_true', help='Use Exponential Moving Average (EMA)')
+    
     args = parser.parse_args()
     
     with open(args.hyp, errors='ignore') as f:
