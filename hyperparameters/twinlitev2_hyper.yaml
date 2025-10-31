@@ -25,3 +25,5 @@ prob_flip: 0.5
 prob_bilateral: 0.1
 prob_gaussian: 0.1
 prob_crop: 0.1
+
+abl_weight_ll: 1.0　# Active Boundary Loss (Lane Line) の重み

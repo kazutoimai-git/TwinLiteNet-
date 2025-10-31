@@ -52,6 +52,7 @@ class GCN(nn.Module):
         out = self.relu(out + x)
         out = self.conv2(out)
         return out
+    
 class CAAM(nn.Module):
     """
     Class Activation Attention Module
@@ -354,7 +355,178 @@ class AvgDownsampler(nn.Module):
             input = pool(input)
         return input
 
-#元のコードを残している。パラメータ数33379
+    
+    
+    
+##############最新（Unet-構造の追加）########################
+# class Encoder(nn.Module):
+#     '''
+#     This class defines the ESPNet-C network in the paper
+#     '''
+#     def __init__(self, config):
+#         super().__init__()
+#         chanel_img = cfg.chanel_img
+#         model_cfg = cfg.sc_ch_dict[config] 
+        
+#         #畳み込み、バッチ正規化、活性化関数の塊
+#         self.level1 = ConvBatchnormRelu(chanel_img, model_cfg['chanels'][0], stride = 2)
+        
+#         #I1,2を作るための部品
+#         self.sample1 = AvgDownsampler(1)
+#         self.sample2 = AvgDownsampler(2)
+        
+#         #level1の特徴とI1の特徴を結合、入力チャネルはlevel1とI1を合わせたもの、出力はnanoの場合8
+#         self.b1 = ConvBatchnormRelu(model_cfg['chanels'][0] + chanel_img,model_cfg['chanels'][1])
+        
+#         #strideESPはダウンサンプリングしながら、Dilated Convolutionを行う。
+#         self.level2_0 = StrideESP(model_cfg['chanels'][1], model_cfg['chanels'][2])
+        
+#         #DepthwiseESPブロックを格納するリストの準備
+#         self.level2 = nn.ModuleList()
+        
+#         #p回DESPブロックをリストに追加する
+#         for i in range(0, model_cfg['p']):
+#             self.level2.append(DepthwiseESP(model_cfg['chanels'][2] , model_cfg['chanels'][2]))
+            
+#         #2回目の結合層、level2の出力とI2を結合した後に使用
+#         #self.b2 = ConvBatchnormRelu(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img)
+#         self.b2 = DepthwiseSeparableConv(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img) #depthwiseに変更
+#         self.b2_bn_act = BatchnormRelu(model_cfg['chanels'][3] + chanel_img)
+        
+#         self.level3_0 = StrideESP(model_cfg['chanels'][3] + chanel_img, model_cfg['chanels'][3])
+#         self.level3 = nn.ModuleList()
+        
+#         #q回DESPブロックをリストに追加する
+#         for i in range(0, model_cfg['q']):
+#             self.level3.append(DepthwiseESP(model_cfg['chanels'][3] , model_cfg['chanels'][3]))
+        
+#         #エンコーダの最終層、アテンションに渡すためチャネル数をchannels[2]=16(nano)に整えている。
+#         #self.b3 = ConvBatchnormRelu(model_cfg['chanels'][4],model_cfg['chanels'][2])
+#         self.b3 = DepthwiseSeparableConv(model_cfg['chanels'][4],model_cfg['chanels'][2])
+#         self.b3_bn_act = BatchnormRelu(model_cfg['chanels'][2])
+        
+#     def forward(self, input):
+#         '''
+#         :param input: Receives the input RGB image
+#         :return: the transformed feature map with spatial dimensions 1/8th of the input image
+#         '''
+#         output0 = self.level1(input)
+#         inp1 = self.sample1(input)
+#         inp2 = self.sample2(input)
+        
+#         output0_cat = self.b1(torch.cat([output0, inp1], 1)) #Depthwiseを使用してないからこの後にbnを入れてない。
+#         output1_0 = self.level2_0(output0_cat) # down-sampled
+        
+#         for i, layer in enumerate(self.level2):
+#             if i==0:
+#                 output1 = layer(output1_0)
+#             else:
+#                 output1 = layer(output1)
+
+#         #output1_cat = self.b2(torch.cat([output1,  output1_0, inp2], 1))#元コード
+#         output1_cat = self.b2(torch.cat([output1,  output1_0, inp2], 1))
+#         output1_cat = self.b2_bn_act(output1_cat)
+        
+#         output2_0 = self.level3_0(output1_cat)
+#         for i, layer in enumerate(self.level3):
+#             if i==0:
+#                 output2 = layer(output2_0)
+#             else:
+#                 output2 = layer(output2)
+#         output2_cat=torch.cat([output2_0, output2], 1)
+#         #out_encoder = self.b3(output2_cat)#元コード
+#         out_encoder = self.b3(output2_cat)
+#         out_encoder = self.b3_bn_act(out_encoder)
+        
+#         return out_encoder,output0_cat,output1_cat  #スキップコネクションを追加
+#         #return out_encoder,inp1,inp2
+
+#################################################################################################
+
+#パラメータ数16000 一部Depthwiseに変更パラメータ数が16000ほどに
+class Encoder(nn.Module):
+    '''
+    This class defines the ESPNet-C network in the paper
+    '''
+    def __init__(self, config):
+        super().__init__()
+        chanel_img = cfg.chanel_img
+        model_cfg = cfg.sc_ch_dict[config] 
+        
+        #畳み込み、バッチ正規化、活性化関数の塊
+        self.level1 = ConvBatchnormRelu(chanel_img, model_cfg['chanels'][0], stride = 2)
+        
+        #I1,2を作るための部品
+        self.sample1 = AvgDownsampler(1)
+        self.sample2 = AvgDownsampler(2)
+        
+        #level1の特徴とI1の特徴を結合、入力チャネルはlevel1とI1を合わせたもの、出力はnanoの場合8
+        self.b1 = ConvBatchnormRelu(model_cfg['chanels'][0] + chanel_img,model_cfg['chanels'][1])
+        
+        #strideESPはダウンサンプリングしながら、Dilated Convolutionを行う。
+        self.level2_0 = StrideESP(model_cfg['chanels'][1], model_cfg['chanels'][2])
+        
+        #DepthwiseESPブロックを格納するリストの準備
+        self.level2 = nn.ModuleList()
+        
+        #p回DESPブロックをリストに追加する
+        for i in range(0, model_cfg['p']):
+            self.level2.append(DepthwiseESP(model_cfg['chanels'][2] , model_cfg['chanels'][2]))
+            
+        #2回目の結合層、level2の出力とI2を結合した後に使用
+        #self.b2 = ConvBatchnormRelu(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img)
+        self.b2 = DepthwiseSeparableConv(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img) #depthwiseに変更
+        self.b2_bn_act = BatchnormRelu(model_cfg['chanels'][3] + chanel_img)
+        
+        self.level3_0 = StrideESP(model_cfg['chanels'][3] + chanel_img, model_cfg['chanels'][3])
+        self.level3 = nn.ModuleList()
+        
+        #q回DESPブロックをリストに追加する
+        for i in range(0, model_cfg['q']):
+            self.level3.append(DepthwiseESP(model_cfg['chanels'][3] , model_cfg['chanels'][3]))
+        
+        #エンコーダの最終層、アテンションに渡すためチャネル数をchannels[2]=16(nano)に整えている。
+        #self.b3 = ConvBatchnormRelu(model_cfg['chanels'][4],model_cfg['chanels'][2])
+        self.b3 = DepthwiseSeparableConv(model_cfg['chanels'][4],model_cfg['chanels'][2])
+        self.b3_bn_act = BatchnormRelu(model_cfg['chanels'][2])
+        
+    def forward(self, input):
+        '''
+        :param input: Receives the input RGB image
+        :return: the transformed feature map with spatial dimensions 1/8th of the input image
+        '''
+        output0 = self.level1(input)
+        inp1 = self.sample1(input)
+        inp2 = self.sample2(input)
+        output0_cat = self.b1(torch.cat([output0, inp1], 1))
+        output1_0 = self.level2_0(output0_cat) # down-sampled
+        
+        for i, layer in enumerate(self.level2):
+            if i==0:
+                output1 = layer(output1_0)
+            else:
+                output1 = layer(output1)
+
+        #output1_cat = self.b2(torch.cat([output1,  output1_0, inp2], 1))#元コード
+        output1_cat = self.b2(torch.cat([output1,  output1_0, inp2], 1))
+        output1_cat = self.b2_bn_act(output1_cat)
+        
+        output2_0 = self.level3_0(output1_cat)
+        for i, layer in enumerate(self.level3):
+            if i==0:
+                output2 = layer(output2_0)
+            else:
+                output2 = layer(output2)
+        output2_cat=torch.cat([output2_0, output2], 1)
+        #out_encoder = self.b3(output2_cat)#元コード
+        out_encoder = self.b3(output2_cat)
+        out_encoder = self.b3_bn_act(out_encoder)
+        return out_encoder,inp1,inp2
+
+
+
+
+###################原型########################################
 # class Encoder(nn.Module):
 #     '''
 #     This class defines the ESPNet-C network in the paper
@@ -425,92 +597,8 @@ class AvgDownsampler(nn.Module):
 #         out_encoder = self.b3(output2_cat)
         
 #         return out_encoder,inp1,inp2
-
-
-# パラメータ数（32925に減少）
-class Encoder(nn.Module):
-    '''
-    This class defines the ESPNet-C network in the paper
-    '''
-    def __init__(self, config):
-        super().__init__()
-        chanel_img = cfg.chanel_img
-        model_cfg = cfg.sc_ch_dict[config] 
-        
-        #畳み込み、バッチ正規化、活性化関数の塊
-        self.level1_conv = DepthwiseSeparableConv(chanel_img, model_cfg['chanels'][0], kernel_size=3, stride=2)
-        self.level1_bn_act = BatchnormRelu(model_cfg['chanels'][0]) # Batchnorm と PReLU を適用
-        
-        #I1,2を作るための部品
-        self.sample1 = AvgDownsampler(1)
-        self.sample2 = AvgDownsampler(2)
-        
-        #level1の特徴とI1の特徴を結合、入力チャネルはlevel1とI1を合わせたもの、出力はnanoの場合8
-        in_channels_b1 = model_cfg['chanels'][0] + chanel_img
-        out_channels_b1 = model_cfg['chanels'][1]
-        self.b1_conv = DepthwiseSeparableConv(in_channels_b1, out_channels_b1, kernel_size=3, stride=1)
-        self.b1_bn_act = BatchnormRelu(out_channels_b1) # Batchnorm と PReLU を適用
-        
-        #strideESPはダウンサンプリングしながら、Dilated Convolutionを行う。
-        self.level2_0 = StrideESP(model_cfg['chanels'][1], model_cfg['chanels'][2])
-        
-        #DepthwiseESPブロックを格納するリストの準備
-        self.level2 = nn.ModuleList()
-        
-        #p回DESPブロックをリストに追加する
-        for i in range(0, model_cfg['p']):
-            self.level2.append(DepthwiseESP(model_cfg['chanels'][2] , model_cfg['chanels'][2]))
-            
-        #2回目の結合層、level2の出力とI2を結合した後に使用
-        self.b2 = ConvBatchnormRelu(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img)
-        
-        self.level3_0 = StrideESP(model_cfg['chanels'][3] + chanel_img, model_cfg['chanels'][3])
-        self.level3 = nn.ModuleList()
-        
-        #q回DESPブロックをリストに追加する
-        for i in range(0, model_cfg['q']):
-            self.level3.append(DepthwiseESP(model_cfg['chanels'][3] , model_cfg['chanels'][3]))
-        
-        #エンコーダの最終層、アテンションに渡すためチャネル数をchannels[2]=16(nano)に整えている。
-        self.b3 = ConvBatchnormRelu(model_cfg['chanels'][4],model_cfg['chanels'][2])
-        
-    def forward(self, input):
-        '''
-        :param input: Receives the input RGB image
-        :return: the transformed feature map with spatial dimensions 1/8th of the input image
-        '''
-        output0 = self.level1_conv(input)
-        output0 = self.level1_bn_act(output0)
-        
-        inp1 = self.sample1(input)
-        inp2 = self.sample2(input)
-        
-        output0_cat_combined = torch.cat([output0, inp1], 1)
-        output0_cat = self.b1_conv(output0_cat_combined)
-        output0_cat = self.b1_bn_act(output0_cat)
-        
-        output1_0 = self.level2_0(output0_cat) # down-sampled
-        
-        for i, layer in enumerate(self.level2):
-            if i==0:
-                output1 = layer(output1_0)
-            else:
-                output1 = layer(output1)
-
-        output1_cat = self.b2(torch.cat([output1,  output1_0, inp2], 1))
-        output2_0 = self.level3_0(output1_cat)
-        for i, layer in enumerate(self.level3):
-            if i==0:
-                output2 = layer(output2_0)
-            else:
-                output2 = layer(output2)
-        output2_cat=torch.cat([output2_0, output2], 1)
-        out_encoder = self.b3(output2_cat)
-        
-        return out_encoder,inp1,inp2
-
-    
-    
+#####################################################################
+  
     
     #以下デコーダ箇所
 class UpSimpleBlock(nn.Module):
@@ -583,6 +671,7 @@ class SingleLiteNetPlus(nn.Module):
 
         return out
 
+#元のモデル（チャネル数が）
 class TwinLiteNetPlus(nn.Module):
     '''
     This class defines the ESPNet network
@@ -637,6 +726,64 @@ class TwinLiteNetPlus(nn.Module):
 
         #2つのタスクの結果を返す
         return out_da,out_ll
+
+
+
+# #変更箇所はデコーダ部分に生画像を渡すんじゃなくて、残差接続を使用した。
+# class TwinLiteNetPlus(nn.Module):
+#     '''
+#     This class defines the ESPNet network
+#     '''
+
+#     def __init__(self, args=None):
+
+#         super().__init__()
+#         chanel_img = cfg.chanel_img
+#         model_cfg = cfg.sc_ch_dict[args.config] 
+#         self.encoder = Encoder(args.config)
+#         #self.sigle_ll = False
+#         #self.sigle_da = False
+        
+#         #PCAA(論文)に当たる箇所　　#引数はややこしく見えるが、config.pyからパラメータをとってきている。
+#         self.caam = CAAM(feat_in=cfg.sc_ch_dict[args.config]['chanels'][2], num_classes=cfg.sc_ch_dict[args.config]['chanels'][2],bin_size =(2,4), norm_layer=nn.BatchNorm2d)
+#         self.conv_caam = ConvBatchnormRelu(cfg.sc_ch_dict[args.config]['chanels'][2],cfg.sc_ch_dict[args.config]['chanels'][1])
+        
+#         self.up_1_da = UpConvBlock(cfg.sc_ch_dict[args.config]['chanels'][1], model_cfg['chanels'][0], sub_dim=model_cfg['chanels'][3] + chanel_img) # ★ sub_dim=35
+#         self.up_2_da = UpConvBlock(model_cfg['chanels'][0], 8, sub_dim=model_cfg['chanels'][1]) # ★ sub_dim=8
+#         self.out_da = UpConvBlock(8, 2, last=True) 
+
+#         # --- 車線 (LL) デコーダ ---
+#         self.up_1_ll = UpConvBlock(cfg.sc_ch_dict[args.config]['chanels'][1], model_cfg['chanels'][0], sub_dim=model_cfg['chanels'][3] + chanel_img) # ★ sub_dim=35
+#         self.up_2_ll = UpConvBlock(model_cfg['chanels'][0], 8, sub_dim=model_cfg['chanels'][1]) # ★ sub_dim=8
+#         self.out_ll = UpConvBlock(8, 2, last=True)
+        
+        
+#     def forward(self, input):
+#         '''
+#         :param input: RGB image
+#         :return: transformed feature map
+#         '''
+        
+#         #エンコーダに入力し、特徴と解像度を下げた画像を得る。
+#         out_encoder,inp1,inp2=self.encoder(input)
+#         #visualize_feature_map_subset(out_encoder, "outencoder", 128)
+        
+#         #特徴をアテンション(CAAM)に通す
+#         out_caam=self.caam(out_encoder)
+#         out_caam=self.conv_caam(out_caam)
+        
+#         #走行可能領域のデコーダ
+#         out_da=self.up_1_da(out_caam,inp2)
+#         out_da=self.up_2_da(out_da,inp1)
+#         out_da=self.out_da(out_da)
+
+#         #車線のデコーダ
+#         out_ll=self.up_1_ll(out_caam,inp2)
+#         out_ll=self.up_2_ll(out_ll,inp1)
+#         out_ll=self.out_ll(out_ll)
+
+#         #2つのタスクの結果を返す
+#         return out_da,out_ll
 
 def netParams(model):
     return np.sum([np.prod(parameter.size()) for parameter in model.parameters()])

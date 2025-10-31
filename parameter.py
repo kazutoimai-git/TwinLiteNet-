@@ -1,3 +1,4 @@
+
 import os
 import torch
 import torch.optim.lr_scheduler
@@ -126,9 +127,12 @@ def train_net(args, hyp):
             'lr': lr
         }, os.path.join(args.savedir, 'checkpoint.pth.tar'))
 
+
+
+
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--max_epochs', type=int, default=100, help='Max number of epochs')
+    parser.add_argument('--max_epochs', type=int, default=10, help='Max number of epochs')
     parser.add_argument('--num_workers', type=int, default=16, help='Number of parallel threads')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
     parser.add_argument('--savedir', default='./testv3', help='Directory to save the results')
@@ -143,4 +147,18 @@ if __name__ == '__main__':
     with open(args.hyp, errors='ignore') as f:
         hyp = yaml.safe_load(f)  # Load hyperparameters
     
-    train_net(args, hyp.copy())
+    # 2. args を使ってモデルを初期化します
+    model = TwinLiteNetPlus(args)
+
+    # 3. ここでモデルの各層のパラメータを確認します
+    print("--- モデルの各層のパラメータ情報 ---")
+    for name, param in model.named_parameters():
+        print(f"名前: {name}")
+        print(f"  サイズ: {param.size()}")
+        print(f"  訓練対象 (requires_grad): {param.requires_grad}")
+        print(f"  パラメータ数: {param.numel()}個") # param.numel() で要素数を取得
+        print("-" * 20) # 区切り線
+
+    # 4. (オプション) 訓練可能なパラメータの総数を計算
+    total_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"\n訓練可能なパラメータ総数: {total_trainable_params}個")

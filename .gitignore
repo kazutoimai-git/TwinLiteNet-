@@ -1,0 +1,52 @@
+# === Python関連 ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.env
+.venv
+venv/
+env/
+
+# === Jupyter Notebookの自動生成ファイル ===
+.ipynb_checkpoints/
+
+# === PyTorch / TensorFlow の重みファイル ===
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.onnx
+*.h5
+
+# === ログ・出力結果 ===
+runs/
+logs/
+outputs/
+results/
+*.log
+*.out
+
+# === データセット（大容量ファイル） ===
+data/
+datasets/
+*.zip
+*.tar
+*.gz
+
+# === キャッシュや一時ファイル ===
+.cache/
+temp/
+tmp/
+*.tmp
+
+# === OS関連 ===
+.DS_Store
+Thumbs.db
+
+# === VSCodeやIDE関連 ===
+.vscode/
+.idea/
+
