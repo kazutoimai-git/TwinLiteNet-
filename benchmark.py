@@ -144,7 +144,7 @@ def benchmark_real_data(args):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--config', type=str, default='nano', choices=["nano", "small", "medium", "large"], help='Model configuration')
-    parser.add_argument('--weight', type=str, default='./result/atention_gate_v2/model_0.pth', help='Path to model weights')
+    parser.add_argument('--weight', type=str, default='./result/large/model_0.pth', help='Path to model weights')
     parser.add_argument('--source', type=str, default='inference/images', help='Path to image directory')
     parser.add_argument('--img-size', type=int, default=640, help='Inference size')
     

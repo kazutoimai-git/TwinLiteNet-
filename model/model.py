@@ -470,8 +470,8 @@ class Encoder(nn.Module):
             self.level2.append(DepthwiseESP(model_cfg['chanels'][2] , model_cfg['chanels'][2]))
             
         #2回目の結合層、level2の出力とI2を結合した後に使用
-        #self.b2 = ConvBatchnormRelu(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img)
-        self.b2 = DepthwiseSeparableConv(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img) #depthwiseに変更
+        self.b2 = ConvBatchnormRelu(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img)
+        # self.b2 = DepthwiseSeparableConv(model_cfg['chanels'][3] + chanel_img,model_cfg['chanels'][3] + chanel_img) #depthwiseに変更
         self.b2_bn_act = BatchnormRelu(model_cfg['chanels'][3] + chanel_img)
         
         self.level3_0 = StrideESP(model_cfg['chanels'][3] + chanel_img, model_cfg['chanels'][3])
@@ -482,8 +482,8 @@ class Encoder(nn.Module):
             self.level3.append(DepthwiseESP(model_cfg['chanels'][3] , model_cfg['chanels'][3]))
         
         #エンコーダの最終層、アテンションに渡すためチャネル数をchannels[2]=16(nano)に整えている。
-        #self.b3 = ConvBatchnormRelu(model_cfg['chanels'][4],model_cfg['chanels'][2])
-        self.b3 = DepthwiseSeparableConv(model_cfg['chanels'][4],model_cfg['chanels'][2])
+        self.b3 = ConvBatchnormRelu(model_cfg['chanels'][4],model_cfg['chanels'][2])
+        # self.b3 = DepthwiseSeparableConv(model_cfg['chanels'][4],model_cfg['chanels'][2])
         self.b3_bn_act = BatchnormRelu(model_cfg['chanels'][2])
         
     def forward(self, input):
@@ -919,6 +919,96 @@ class TwinLiteNetPlus(nn.Module):
 
         #2つのタスクの結果を返す
         return out_da,out_ll
+
+
+
+# チャネルを1*1convで削減
+# class TwinLiteNetPlus(nn.Module):
+#     '''
+#     This class defines the ESPNet network
+#     '''
+
+#     def __init__(self, args=None):
+
+#         super().__init__()
+#         chanel_img = cfg.chanel_img
+#         model_cfg = cfg.sc_ch_dict[args.config] 
+#         self.encoder = Encoder(args.config)
+#         #self.sigle_ll = False
+#         #self.sigle_da = False
+
+#         skip1_in_channels = model_cfg['chanels'][3] + chanel_img
+#         skip1_out_channels = 8  # 実際に8チャネルになっているようなので8に設定
+#         self.skip_proj_1 = nn.Sequential(
+#             nn.Conv2d(skip1_in_channels, skip1_out_channels, kernel_size=1, bias=False),
+#             nn.BatchNorm2d(skip1_out_channels),
+#             nn.PReLU(skip1_out_channels)
+#         )
+
+#         # inp1 (浅い層) 用: 8 -> 4 に圧縮
+#         skip2_in_channels = model_cfg['chanels'][1]
+#         skip2_out_channels = 4
+#         self.skip_proj_2 = nn.Sequential(
+#             nn.Conv2d(skip2_in_channels, skip2_out_channels, kernel_size=1, bias=False),
+#             nn.BatchNorm2d(skip2_out_channels),
+#             nn.PReLU(skip2_out_channels)
+#         )
+
+#         self.caam = CAAM(feat_in=cfg.sc_ch_dict[args.config]['chanels'][2], num_classes=cfg.sc_ch_dict[args.config]['chanels'][2],bin_size =(2,4), norm_layer=nn.BatchNorm2d)
+#         self.conv_caam = ConvBatchnormRelu(cfg.sc_ch_dict[args.config]['chanels'][2],cfg.sc_ch_dict[args.config]['chanels'][1])
+#         # --- ★ 2. デコーダの定義を修正（ここがエラーの原因） ---
+#         # sub_dim を「元の計算式」ではなく「圧縮後のチャネル数変数」に変更します
+        
+#         # DA (Drivable Area) デコーダ
+#         # 修正前: sub_dim=model_cfg['chanels'][3] + chanel_img
+#         # 修正後: sub_dim=skip1_out_channels
+#         self.up_1_da = UpConvBlock(cfg.sc_ch_dict[args.config]['chanels'][1], model_cfg['chanels'][0], sub_dim=skip1_out_channels)
+        
+#         # 修正前: sub_dim=model_cfg['chanels'][1]
+#         # 修正後: sub_dim=skip2_out_channels
+#         self.up_2_da = UpConvBlock(model_cfg['chanels'][0], 8, sub_dim=skip2_out_channels)
+        
+#         self.out_da = UpConvBlock(8, 2, last=True) 
+
+#         # LL (Lane Line) デコーダ
+#         # 同様に sub_dim を変更
+#         self.up_1_ll = UpConvBlock(cfg.sc_ch_dict[args.config]['chanels'][1], model_cfg['chanels'][0], sub_dim=skip1_out_channels)
+#         self.up_2_ll = UpConvBlock(model_cfg['chanels'][0], 8, sub_dim=skip2_out_channels)
+        
+#         self.out_ll = UpConvBlock(8, 2, last=True)
+        
+        
+#     def forward(self, input):
+#         '''
+#         :param input: RGB image
+#         :return: transformed feature map
+#         '''
+        
+#         #エンコーダに入力し、特徴と解像度を下げた画像を得る。
+#         out_encoder,inp1,inp2=self.encoder(input)
+#         #visualize_feature_map_subset(out_encoder, "outencoder", 128)
+        
+#         skip_feat_1 = self.skip_proj_1(inp2)  # 深い層を圧縮 (例: 35ch -> 8ch)
+#         skip_feat_2 = self.skip_proj_2(inp1)  # 浅い層を圧縮 (例: 8ch -> 4ch)
+
+#         # ... (CAAMの処理) ...
+#         out_caam = self.caam(out_encoder)
+#         out_caam = self.conv_caam(out_caam)
+        
+#         # 【変更】圧縮した特徴マップ (skip_feat) をデコーダに渡す
+#         # 走行可能領域
+#         out_da = self.up_1_da(out_caam, skip_feat_1)
+#         out_da = self.up_2_da(out_da, skip_feat_2)
+#         out_da = self.out_da(out_da)
+
+#         # 車線
+#         out_ll = self.up_1_ll(out_caam, skip_feat_1)
+#         out_ll = self.up_2_ll(out_ll, skip_feat_2)
+#         out_ll = self.out_ll(out_ll)
+
+#         return out_da, out_ll
+
+
 
 def netParams(model):
     return np.sum([np.prod(parameter.size()) for parameter in model.parameters()])
