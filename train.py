@@ -7,8 +7,8 @@ import math
 from copy import deepcopy
 from argparse import ArgumentParser
 import csv
-
-from model.model import TwinLiteNetPlus
+from model.base_model import TwinLiteNetPlus
+# from model.model import TwinLiteNetPlus
 from loss import TotalLoss
 from utils import train, val, netParams, save_checkpoint, poly_lr_scheduler
 import BDD100K
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_epochs', type=int, default=100, help='Max number of epochs')
     parser.add_argument('--num_workers', type=int, default=16, help='Number of parallel threads')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
-    parser.add_argument('--savedir', default='./result_v2/base_proposed/nano', help='Directory to save the results')
+    parser.add_argument('--savedir', default='./result_v2/baseline/nano', help='Directory to save the results')
     parser.add_argument('--hyp', type=str, default='./hyperparameters/twinlitev2_hyper.yaml', help='Path to hyperparameters YAML')
     parser.add_argument('--resume', type=str, default='', help='Resume training from a checkpoint')
     parser.add_argument('--config', default='nano', help='Model configuration')
